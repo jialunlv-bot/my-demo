@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IHS AI Feature Configuration Portal</title>
+    <style>
+        :root { --shopee-orange: #EE4D2D; --bg: #F6F6F6; --border: #E8E8E8; --text: #333; --gray-text: #888; --v1-blue: #4A90E2; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 50px;}
+        
+        nav { background: white; padding: 15px 40px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .logo { color: var(--shopee-orange); font-size: 20px; font-weight: bold; }
+        
+        .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        /* Page 1: List */
+        .feature-item { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border); }
+        .btn-text { color: var(--shopee-orange); cursor: pointer; font-weight: 600; text-decoration: none; border: 1px solid var(--shopee-orange); padding: 5px 15px; border-radius: 4px; font-size: 13px;}
+
+        /* Page 2: A/B Test & Multi-Metrics */
+        .traffic-control { margin: 30px 0; padding: 20px; background: #fafafa; border-radius: 8px;}
+        .slider-wrapper { display: flex; align-items: center; gap: 20px; margin-top: 15px; }
+        input[type=range] { flex-grow: 1; accent-color: var(--shopee-orange); }
+        
+        .dual-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .chart-box { border: 1px solid var(--border); padding: 15px; border-radius: 6px; }
+        .chart-placeholder { height: 100px; width: 100%; border-bottom: 1px solid #eee; position: relative; display: flex; align-items: flex-end; gap: 4px; }
+        .bar { flex: 1; background: #eee; min-height: 10%; transition: height 0.3s; }
+        .bar.v1 { background: var(--v1-blue); }
+        .bar.v2 { background: var(--shopee-orange); }
+
+        /* Page 3: Full Editor */
+        .section-header { font-weight: bold; font-size: 14px; margin-bottom: 15px; color: #555; display: flex; align-items: center; gap: 8px;}
+        .section-header::before { content: ""; width: 4px; height: 14px; background: var(--shopee-orange); display: inline-block;}
+        .prompt-block { border: 1px solid var(--border); border-radius: 4px; padding: 15px; background: #fdfdfd; line-height: 1.6; font-size: 13px;}
+        .editable-area { border: 1px solid var(--shopee-orange); padding: 10px; margin: 10px 0; background: white; }
+        textarea { width: 100%; border: none; outline: none; font-family: inherit; font-size: 13px; color: #d44; resize: none;}
+
+        /* Standardized Metrics Module */
+        .metrics-module { border-top: 1px solid var(--border); margin-top: 30px; padding-top: 20px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .metric-card { background: #f9f9f9; padding: 15px; border-radius: 4px; text-align: center; }
+        .m-title { font-size: 11px; color: #999; margin-bottom: 5px; text-transform: uppercase; }
+        .m-value { font-size: 18px; font-weight: bold; }
+
+        .hidden { display: none; }
+        .btn-primary { background: var(--shopee-orange); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo">IHS AI Feature Configuration Portal</div>
+</nav>
+
+<div class="container">
+    
+    <div id="page-1">
+        <div class="card">
+            <h2>Feature Configuration List</h2>
+            <div class="feature-item">
+                <div><strong>Case Summary</strong><br><small style="color:#999">Summarizes user chats for agent handovers</small></div>
+                <div class="btn-text" onclick="showPage(2)">View Detail</div>
+            </div>
+            <div class="feature-item">
+                <div><strong>Internal Note</strong><br><small style="color:#999">Drafts context-aware internal escalation notes</small></div>
+                <div class="btn-text">View Detail</div>
+            </div>
+            <div class="feature-item">
+                <div><strong>AI Polish</strong><br><small style="color:#999">Ensures tone consistency in customer replies</small></div>
+                <div class="btn-text">View Detail</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-2" class="hidden">
+        <div class="card">
+            <h2>Case Summary: Experiment Control</h2>
+            
+            <div class="traffic-control">
+                <div class="section-header">A/B Testing Traffic Distribution</div>
+                <div class="slider-wrapper">
+                    <span style="color: var(--v1-blue); font-weight: bold;">V1: <span id="v1-label">60</span>%</span>
+                    <input type="range" min="0" max="100" value="60" oninput="updateTraffic(this.value)">
+                    <span style="color: var(--shopee-orange); font-weight: bold;">V2: <span id="v2-label">40</span>%</span>
+                </div>
+            </div>
+
+            <div class="dual-charts">
+                <div class="chart-box">
+                    <div class="section-header">V1: Adoption Rate Trend</div>
+                    <div class="chart-placeholder">
+                        <div class="bar v1" style="height: 40%"></div><div class="bar v1" style="height: 35%"></div><div class="bar v1" style="height: 38%"></div><div class="bar v1" style="height: 32%"></div>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <div class="section-header">V2: Adoption Rate Trend</div>
+                    <div class="chart-placeholder">
+                        <div class="bar v2" style="height: 45%"></div><div class="bar v2" style="height: 55%"></div><div class="bar v2" style="height: 65%"></div><div class="bar v2" style="height: 80%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn-primary" onclick="showPage(3)">Edit Prompt V1</button>
+                <button class="btn-primary" onclick="showPage(3)">Edit Prompt V2</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-3" class="hidden">
+        <div class="card">
+            <h2>Prompt Configuration (V2)</h2>
+            
+            <div class="section-header">Full Prompt Structure</div>
+            <div class="prompt-block">
+                user-customer service conversations@var={23399.case_log}<br>
+                Summarize user-customer service conversations by following these steps:<br>
+                1. Produce an overall outline summarizing the user's problem in less than 30 words.<br>
+                2. Generate a global set of key items, encompassing all the conversations:
+                <div class="editable-area">
+                    <textarea rows="5">- "User Type": Local Buyer/Seller Labeling
+- "Enquiry Type": Marketplace Specific Tags
+- "Order SN": Identification Logic
+- "Sentiment": Regional Tone analysis</textarea>
+                </div>
+                3. You should have a strong understanding of market languages to accurately interpret...<br>
+                4. Create a concise summary less than 30 words for each conversation...
+            </div>
+
+            <div class="section-header" style="margin-top: 25px;">Data Structure Definition (Output JSON)</div>
+            <div class="prompt-block" style="background: #f0f0f0; font-family: monospace;">
+                { "overall_outline": "string", "key_items": { "user_type": "enum", "order_id": "number" }, "summaries": [ { "id": "int", "text": "string" } ] }
+            </div>
+
+            <div class="metrics-module">
+                <div class="section-header">Standardized Performance Monitoring Module</div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="m-title">Daily Adoption</div>
+                        <div class="m-value" style="color:var(--shopee-orange)">18.2%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-title">Avg Latency</div>
+                        <div class="m-value">840ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-title">Token Cost</div>
+                        <div class="m-value">$0.004</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-title">Hallucination Rate</div>
+                        <div class="m-value">0.2%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; text-align: right;">
+                <button style="border:none; background:none; color:#999; margin-right: 15px; cursor:pointer;" onclick="showPage(2)">Back</button>
+                <button class="btn-primary">Apply Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showPage(num) {
+        document.getElementById('page-1').classList.add('hidden');
+        document.getElementById('page-2').classList.add('hidden');
+        document.getElementById('page-3').classList.add('hidden');
+        document.getElementById('page-' + num).classList.remove('hidden');
+    }
+
+    function updateTraffic(val) {
+        document.getElementById('v1-label').innerText = 100 - val;
+        document.getElementById('v2-label').innerText = val;
+    }
+</script>
+
+</body>
+</html>
