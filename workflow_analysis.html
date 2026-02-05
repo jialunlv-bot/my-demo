@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>Feedback Analysis (Workflow)</title>
+<style>
+body { font-family: Arial, sans-serif; background:#fafafa; margin:0; padding:20px; }
+h1 { color:#ee4d2d; }
+input, button { width:100%; padding:10px; margin-top:8px; margin-bottom:12px; border-radius:6px; border:1px solid #ccc; }
+button { background:#ee4d2d; color:white; border:none; cursor:pointer; }
+button:hover { opacity:0.9; }
+.section { background:white; padding:16px; border-radius:10px; margin-top:20px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+.grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
+.card { border:1px solid #eee; padding:14px; border-radius:10px; }
+.badge { display:inline-block; padding:4px 10px; border-radius:12px; font-size:12px; color:white; }
+.high { background:#d9534f; }
+.medium { background:#f0ad4e; }
+.low { background:#5cb85c; }
+details { margin-top:8px; }
+summary { cursor:pointer; font-weight:bold; }
+ul { padding-left:18px; }
+.status { margin-top:10px; color:#555; }
+.error { color:#d9534f; }
+</style>
+</head>
+<body>
+<h1>SmartAA Feedback Analysis</h1>
+
+<div class="section">
+  <h3>参数输入</h3>
+  <input id="sheetUrl" placeholder="Google Sheet URL" />
+  <input id="range" placeholder="Sheet Range（逗号分隔，如：Sheet1!H:K,Sheet1!M:N）" />
+  <button id="runBtn" onclick="runAnalysis()">运行分析</button>
+  <div id="status" class="status"></div>
+</div>
+
+<div id="output"></div>
+
+<div class="section">
+  <details>
+    <summary>查看原始返回 JSON</summary>
+    <pre id="raw" style="white-space:pre-wrap; word-break:break-word;"></pre>
+  </details>
+</div>
+
+<script>
+const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1lz9GepTXI-WsK0ePnsIuZdztrEUsJV2iOAYLk6bDgTg/edit?gid=93172124#gid=93172124";
+const DEFAULT_RANGE = "AA_feedback_2-3_Feb!H:K";
+const API_URL = (new URLSearchParams(window.location.search).get("api")) || "http://localhost:8787/api/workflow";
+const AUTORUN = new URLSearchParams(window.location.search).get("autorun");
+
+function pickAnalysisObject(obj) {
+  if (!obj || typeof obj !== "object") return null;
+  const hasCore = (o) => o && typeof o === "object" && (("total_feedback_count" in o) || ("categories" in o && "insights" in o));
+  const tryParse = (s) => {
+    if (typeof s !== "string") return null;
+    try { const p = JSON.parse(s); return hasCore(p) ? p : null; } catch { return null; }
+  };
+  if (hasCore(obj)) return obj;
+  const deepText = (((obj.data || {}).output || {}).text);
+  const parsedDeep = tryParse(deepText);
+  if (parsedDeep) return parsedDeep;
+  const candidates = ["output","result","data","payload"];
+  for (const k of candidates) {
+    if (hasCore(obj[k])) return obj[k];
+    const parsed = tryParse(obj[k]);
+    if (parsed) return parsed;
+    const maybeText = obj[k] && obj[k].text;
+    const parsedText = tryParse(maybeText);
+    if (parsedText) return parsedText;
+  }
+  for (const v of Object.values(obj)) {
+    if (hasCore(v)) return v;
+    const parsedV = tryParse(v);
+    if (parsedV) return parsedV;
+    const parsedVText = tryParse(v && v.text);
+    if (parsedVText) return parsedVText;
+  }
+  return null;
+}
+
+function renderReport(data) {
+  const output = document.getElementById("output");
+  output.innerHTML = "";
+  output.innerHTML += `
+    <div class="section">
+      <h3>Overview</h3>
+      <p><b>Total Feedback:</b> ${data.total_feedback_count}</p>
+      <p><b>Top 5 Issues:</b></p>
+      <ul>
+        ${(data.top_5_issues || []).map(i=>`<li>${i}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+  let cards = "";
+  const categories = data.categories || {};
+  for (const [name, obj] of Object.entries(categories)) {
+    const sevClass = (obj.severity || "").toLowerCase();
+    cards += `
+      <div class="card">
+        <h4>${name}</h4>
+        <p><b>Count:</b> ${obj.count}</p>
+        <span class="badge ${sevClass}">${obj.severity || ""}</span>
+        <details>
+          <summary>Examples</summary>
+          <ul>
+            ${(obj.examples || []).map(e=>`<li>${e}</li>`).join("")}
+          </ul>
+        </details>
+      </div>
+    `;
+  }
+  output.innerHTML += `
+    <div class="section">
+      <h3>Problem Categories</h3>
+      <div class="grid">${cards}</div>
+    </div>
+  `;
+  output.innerHTML += `
+    <div class="section">
+      <h3>Insights & Recommendations</h3>
+      <ul>
+        ${(data.insights || []).map(i=>`<li>${i}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+}
+
+async function runAnalysis() {
+  const btn = document.getElementById("runBtn");
+  const status = document.getElementById("status");
+  const sheetUrl = document.getElementById("sheetUrl").value.trim();
+  const rangeRaw = document.getElementById("range").value.trim();
+  const ranges = rangeRaw ? rangeRaw.split(",").map(s=>s.trim()).filter(Boolean) : [];
+  if (!sheetUrl || ranges.length === 0) {
+    status.textContent = "请填写 sheet_url 与 range（至少一个范围）";
+    status.className = "status error";
+    return;
+  }
+  status.textContent = "正在调用 Workflow...";
+  status.className = "status";
+  btn.disabled = true;
+  try {
+    const url = API_URL;
+    const payload = { sheet_url: sheetUrl, range: ranges };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    document.getElementById("raw").textContent = JSON.stringify(json, null, 2);
+    const analysis = pickAnalysisObject(json);
+    if (!analysis) {
+      status.textContent = "已返回数据，但未识别到分析结构，已展示原始 JSON";
+      status.className = "status error";
+      return;
+    }
+    renderReport(analysis);
+    status.textContent = "分析完成";
+    status.className = "status";
+  } catch (err) {
+    status.textContent = "调用失败，请检查网络或参数";
+    status.className = "status error";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const sheetUrlEl = document.getElementById("sheetUrl");
+  const rangeEl = document.getElementById("range");
+  if (sheetUrlEl && !sheetUrlEl.value) sheetUrlEl.value = DEFAULT_SHEET_URL;
+  if (rangeEl && !rangeEl.value) rangeEl.value = DEFAULT_RANGE;
+  if (AUTORUN && AUTORUN !== "0" && AUTORUN !== "false") {
+    runAnalysis();
+  }
+});
+</script>
+</body>
+</html>
